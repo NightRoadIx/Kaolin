@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1408</width>
-    <height>933</height>
+    <width>1426</width>
+    <height>786</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,10 +17,10 @@
    <widget class="MplWidget" name="MplWidget" native="true">
     <property name="geometry">
      <rect>
-      <x>330</x>
+      <x>440</x>
       <y>10</y>
-      <width>511</width>
-      <height>401</height>
+      <width>481</width>
+      <height>371</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -141,10 +141,10 @@
    <widget class="MplWidget" name="MplWidget3" native="true">
     <property name="geometry">
      <rect>
-      <x>330</x>
-      <y>430</y>
-      <width>511</width>
-      <height>381</height>
+      <x>440</x>
+      <y>390</y>
+      <width>481</width>
+      <height>351</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -154,10 +154,10 @@
    <widget class="MplWidget" name="MplWidget2" native="true">
     <property name="geometry">
      <rect>
-      <x>850</x>
+      <x>930</x>
       <y>10</y>
-      <width>511</width>
-      <height>401</height>
+      <width>481</width>
+      <height>371</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -167,17 +167,17 @@
    <widget class="MplWidget" name="MplWidget4" native="true">
     <property name="geometry">
      <rect>
-      <x>850</x>
-      <y>430</y>
-      <width>511</width>
-      <height>381</height>
+      <x>930</x>
+      <y>390</y>
+      <width>481</width>
+      <height>351</height>
      </rect>
     </property>
     <property name="styleSheet">
      <string notr="true">background-color: rgb(255, 255, 255);</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="ajuste">
+   <widget class="QPushButton" name="ajustar">
     <property name="geometry">
      <rect>
       <x>20</x>
@@ -190,13 +190,33 @@
      <string>Ajustar Datos</string>
     </property>
    </widget>
+   <widget class="QTableWidget" name="tableWidget">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>340</y>
+      <width>401</width>
+      <height>391</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(216, 216, 216);
+border-color: rgb(0, 0, 127);</string>
+    </property>
+    <property name="lineWidth">
+     <number>2</number>
+    </property>
+    <property name="sizeAdjustPolicy">
+     <enum>QAbstractScrollArea::AdjustToContentsOnFirstShow</enum>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1408</width>
+     <width>1426</width>
      <height>21</height>
     </rect>
    </property>
