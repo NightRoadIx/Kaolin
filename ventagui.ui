@@ -294,7 +294,7 @@ border-color: rgb(0, 0, 127);</string>
      <string>Autoajuste</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="entrenarModelo_2">
+   <widget class="QPushButton" name="predecirModelo">
     <property name="geometry">
      <rect>
       <x>20</x>
@@ -305,6 +305,19 @@ border-color: rgb(0, 0, 127);</string>
     </property>
     <property name="text">
      <string>Predcciones</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_6">
+    <property name="geometry">
+     <rect>
+      <x>320</x>
+      <y>710</y>
+      <width>47</width>
+      <height>13</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>TextLabel</string>
     </property>
    </widget>
   </widget>

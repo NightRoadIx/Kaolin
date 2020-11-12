@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import, division, print_function, unicode_literals
 import sys
 
 # # #Importar aquí las librerías a utilizar # # #
@@ -7,9 +8,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
 
+# Indispensable para utilizar keras y TensorFlow
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+
 # Librerías del PyQt
 from PyQt5 import uic, QtWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QApplication, QWidget, QInputDialog, QLineEdit, QFileDialog, QTableWidget, QTableWidgetItem, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QWidget, QCheckBox, QInputDialog, QLineEdit, QFileDialog, QTableWidget, QTableWidgetItem, QVBoxLayout
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, pyqtSlot
 
@@ -71,6 +77,11 @@ class MyApp(QtWidgets.QMainWindow, Ui_MainWindow):
         self.caolinTipo.setEnabled(False)
         self.graficar.setEnabled(False)
         self.ajustar.setEnabled(False)
+        self.entrenarModelo.setEnabled(False)
+        self.predecirModelo.setEnabled(False)
+        self.epok.setEnabled(False)
+        self.autoEpok.setEnabled(False)
+        self.label_6.setVisible(False)
         
         # Conectar acciones de Widgets con funciones de la clase
         self.botonAbrir.clicked.connect(self.openFileNameDialog)
@@ -79,6 +90,12 @@ class MyApp(QtWidgets.QMainWindow, Ui_MainWindow):
         #self.caolinTipo.currentTextChanged.connect(self.final)
         self.graficar.clicked.connect(self.graficarDatos)
         self.ajustar.clicked.connect(self.ajustarDatos)
+        self.entrenarModelo.clicked.connect(self.entrenarRedDatos)
+        self.autoEpok.stateChanged.connect(self.cambiarAutoAjuste)
+        
+        # Mandar a la consola la versión del TensorFlow
+        print(tf.version.VERSION)
+        print(tf.__version__)
                         
         # Agregar la ToolBar para graficar
         #self.addToolBar(NavigationToolbar(self.MplWidget.canvas, self))
@@ -96,8 +113,8 @@ class MyApp(QtWidgets.QMainWindow, Ui_MainWindow):
             print(fileName)
             # Subir el nombre del archivo (ruta completa)
             self.lineaArchivo.setText(fileName)
-            # Abrir mediante pandas el archivo CSV
-            self.df = pd.read_csv(fileName)
+            # Abrir mediante pandas el archivo CSV (ajustar apertura con lo que TF requiere)
+            self.df = pd.read_csv(fileName, na_values = "?", comment='\t', sep=",", skipinitialspace=True)
             # Cargar los datos en el primer combobox
             # TODO: Modificar para cambiar a porcentaje
             pcts = [i * 100 for i in self.df["Cw"].unique().tolist()]
@@ -107,6 +124,12 @@ class MyApp(QtWidgets.QMainWindow, Ui_MainWindow):
             self.caolinPct.addItems(self.df["Cw"].unique().astype(str).tolist())
             # Activar el combobox del porcentaje
             self.caolinPct.setEnabled(True)
+            
+            # Activar el cuadro de entrenamiento
+            self.entrenarModelo.setEnabled(True)
+            self.epok.setEnabled(True)
+            self.autoEpok.setEnabled(True)
+            self.lineaArchivo_2.setEnabled(True)
     
     # Método al seleccionar el porcentaje
     def selectPct(self):
@@ -218,6 +241,143 @@ class MyApp(QtWidgets.QMainWindow, Ui_MainWindow):
             self.tableWidget.setItem(i,4,QTableWidgetItem(str(round(r_cuad2,4))))
             i += 1
         self.tableWidget.resizeColumnsToContents()
+    
+    # Modificar comportamiento tras dar check a autoajuste
+    def cambiarAutoAjuste(self, state):
+        if state == Qt.Checked:
+            self.epok.setEnabled(False)
+        else:
+            self.epok.setEnabled(True)
+    
+    # Entrenar la red con los datos
+    def entrenarRedDatos(self):
+        # Generar la lista con los nombres de las columnas
+        column_names = list(self.df.columns)
+        
+        # Copiar los datos en otra variable
+        dataset = self.df.copy()
+        
+        # Datos de entrenamiento
+        train_dataset = dataset.sample(frac=0.8,random_state=None)
+        # Datos de prueba
+        test_dataset = dataset.drop(train_dataset.index)
+        
+        # También se da una vista rápida a las estadísticas principales
+        train_stats = train_dataset.describe()
+        train_stats.pop("mu R")
+        train_stats = train_stats.transpose()
+        
+        # Dividir las características de las etiquetas
+        # Separar el valor objetivo, o "etiqueta", de las características. Esta etiqueta es el valor que será entrenado para predecir el modelo
+        train_labels = train_dataset.pop('mu R')
+        test_labels = test_dataset.pop('mu R')
+        
+        def norm(x): return(x - train_stats['mean']) / train_stats['std']
+        
+        # Normalizar tanto los datos de entrenamiento como de prueba
+        normed_train_data = norm(train_dataset)
+        normed_test_data = norm(test_dataset)
+        
+        # MODELO
+        # Crear el modelo
+        # Aquí se utiliza un modelo Sequential con dos capas ocultas densamente conectadas, y una capa de salida  que regresa un valor
+        # continuo. Los pasos para la construcción del modelo están colocados en una función. 
+        def build_model():
+            # El modelo secuencial ingresa 9 puntos (los datos)
+            # Una capa de 64 neuronas al medio
+            # Salida de 1, el cual es el valor objetivo de la viscosidad
+            model = keras.Sequential(
+                    [layers.Dense(9, activation='relu', input_shape=[len(train_dataset.keys())]), 
+                     layers.Dense(64, activation='relu'), 
+                     layers.Dense(1)])
+            # Un optimizador por medio de RMS con valor de 0.001
+            optimizer = tf.keras.optimizers.RMSprop(0.001)
+            # Se compila el modelo con la función de pérdida MSE, el optimizador y métricas MAE, MSE
+            model.compile(loss='mse', optimizer=optimizer, metrics=['mae', 'mse'])
+            return model
+        
+        # Generar el modelo
+        model = build_model()
+        
+        # Mandar a consola el resumen del modelo
+        model.summary()
+        
+        # ENTRENAR EL MODELO
+        # Desplegar el proceso de entrenamiento al colocar un punto para cada época completada
+        class PrintDot(keras.callbacks.Callback):
+            def on_epoch_end(self, epoch, logs):
+                if epoch % 100 == 0: print('')
+                print('.', end='')
+        
+        # Obtener el valor de epocas a realizar dede el control
+        EPOCHS = self.epok.value()
+        
+        # Si se coloca a entrenamiento por un máximo de época
+        if self.autoEpok.isChecked() == False:
+            # Historial de como se entrena el modelo
+            history = model.fit(
+              normed_train_data, train_labels,
+              epochs=EPOCHS, validation_split = 0.2, verbose=0,
+              callbacks=[PrintDot()])
+        # o con un autodetener
+        else:
+            early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=10)
+            history = model.fit(normed_train_data, train_labels, epochs=EPOCHS, validation_split = 0.2, verbose=0, callbacks=[early_stop, PrintDot()])
+        
+        # Visualizar el progreso del entrenamiento usando las estadísticas de entrenamiento del proceso usadas/almacenadas en el objeto history
+        hist = pd.DataFrame(history.history)
+        hist['epoch'] = history.epoch
+        hist.tail()
+        
+        # UNDONE: Mandar un pequeño letrero de listo
+        self.label_6.setVisible(True)
+        self.label_6.setText("Listo")
+        
+        # Graficar
+        hist = pd.DataFrame(history.history)
+        hist['epoch'] = history.epoch
+        self.MplWidget.canvas.axes.clear()
+        self.MplWidget.canvas.axes.plot(hist['epoch'].tolist(), hist['mean_absolute_error'].tolist(), label='Entrenamiento')
+        self.MplWidget.canvas.axes.plot(hist['epoch'].tolist(), hist['val_mean_absolute_error'].tolist(), label='Error de validación (MAE)')
+        self.MplWidget.canvas.axes.set_xlabel("Epoca")
+        self.MplWidget.canvas.axes.set_ylabel("Error Abs Prom (MAE) [$\mu$]")
+        self.MplWidget.canvas.axes.set_position([0.18, 0.15, 0.8, 0.8])
+        self.MplWidget.canvas.axes.legend()
+        self.MplWidget.canvas.draw()
+        
+        self.MplWidget2.canvas.axes.clear()
+        self.MplWidget2.canvas.axes.plot(hist['epoch'].tolist(), hist['mean_squared_error'].tolist(), label='Entrenamiento')
+        self.MplWidget2.canvas.axes.plot(hist['epoch'].tolist(), hist['val_mean_squared_error'].tolist(), label='Error de validación (RMS)')
+        self.MplWidget2.canvas.axes.set_xlabel("Epoca")
+        self.MplWidget2.canvas.axes.set_ylabel("Error Cuadr. Medio (RMS) [$mu^2$]")
+        self.MplWidget2.canvas.axes.set_position([0.20, 0.15, 0.7, 0.8])
+        self.MplWidget2.canvas.axes.legend()
+        self.MplWidget2.canvas.draw()
+        
+        # PREDICCIONES
+        # Finalmente, realizar predicciones de los valores de viscosidad en el grupo de prueba
+        test_predictions = model.predict(normed_test_data).flatten()
+        
+        # Distribución de los errores
+        error = test_predictions - test_labels
+        
+        self.MplWidget3.canvas.axes.clear()
+        self.MplWidget3.canvas.axes.scatter(test_labels, test_predictions, color="blue")
+        self.MplWidget3.canvas.axes.plot([0, 1750], [0, 1750], color="red")
+        self.MplWidget3.canvas.axes.set_xlabel("Valores reales \u03BC [mPa s]")
+        self.MplWidget3.canvas.axes.set_ylabel("Predicciones \u03BC [mPa s]")
+        self.MplWidget3.canvas.axes.set_position([0.18, 0.15, 0.8, 0.8])
+        self.MplWidget3.canvas.draw()
+        
+        self.MplWidget4.canvas.axes.clear()
+        self.MplWidget4.canvas.axes.hist(error, bins = 25)
+        self.MplWidget4.canvas.axes.set_xlabel("Error de Predicción [\u03BC]")
+        self.MplWidget4.canvas.axes.set_ylabel("Cuentas")
+        self.MplWidget4.canvas.draw()
+        
+        # Salvar el modelo
+        model.save(self.lineaArchivo_2.text())
+        
 
 # FUNCIÓN MAIN
 if __name__ == "__main__":
